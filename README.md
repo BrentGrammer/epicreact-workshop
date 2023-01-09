@@ -1,5 +1,6 @@
 <div>
   <h1 align="center"><a href="https://epicreact.dev/app">Build an Epic React App 🚀 EpicReact.Dev</a></h1>
+  <h3>A workshop by Kent C. Dodds from his Epic React course</h3>
   <strong>
     Building a full React application
   </strong>
