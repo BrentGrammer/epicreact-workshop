@@ -42,15 +42,45 @@ your code now has a third user.
     re-rendering?
   - Subscription changes: What happens when an event emitter the component
     subscribes to changes? (Like firebase, a redux store, a router, a media
-    query, or browser-based subscriptions like online status)  
+    query, or browser-based subscriptions like online status)
+- Note: most hooks and components should be tested in integration tests, not
+  individualized tests
 
+  - The exception is for highly reusable or highly complex hooks and components
+
+  ### Useful packages for testing with React
+
+  - Testing Library
+  - @testing-library/user-event for user interaction
+  - @testing-library/jest-dom
 
 ## Where to start?
 
 - What is the worst thing that could break or make your user upset if it didn't
   work?
-- Start with a e2e test covering the happy path for each use case and add more tests from there.
+- Start with a e2e test covering the happy path for each use case and add more
+  tests from there.
 - Once you have a few E2E tests in place, then you can start looking at writing
   some integration tests for some of the edge cases that you are missing in your
   E2E tests and unit tests for the more complex business logic that those
   features are using
+
+## AHA Programming
+
+- Avoid Hasty Abstractions and Optimize for Change
+- use code duplication until you feel pretty confident that you know the use
+  cases for that duplicate code. What parts of the code are different that would
+  make good arguments to your function? After you've got a few places where that
+  code is running, the commonalities will scream at you for abstraction and
+  you'll be in the right frame of mind to provide that abstraction.
+- If you abstract early, you'll think the function or component is perfect for
+  your use case and so you just bend the code to fit your new use case. This
+  goes on several times until the abstraction is basically your whole
+  application in if statements and loops
+- Tip: can use jsinspect to analyze code for duplication and abstraction
+  opportunitieshttps://github.com/danielstjules/jsinspect
+- you shouldn't be dogmatic about when you start writing abstractions but
+  instead write the abstraction when it feels right and don't be afraid to
+  duplicate code until you get there.
+- If you find yourself passing parameters and adding conditional paths through
+  shared code, the abstraction is incorrect.
