@@ -6,6 +6,10 @@ import {server} from 'test/server'
 import * as usersDB from 'test/data/users'
 import * as listItemsDB from 'test/data/list-items'
 import * as booksDB from 'test/data/books'
+/*
+Apps bootstrapped with create-react-app that are using react-scripts version 0.4.0 or higher will automatically run src/setupTests.js 
+to initialize the test environment before each test runs.
+*/
 
 // we don't need the profiler in tests
 jest.mock('components/profiler')
