@@ -118,6 +118,9 @@ in the devtools after selecting an element.
 
 Use `screen.debug()` to check the html of the rendered component.
 
+**Seeing ALL output in terminal if cut off**:
+- `screen.debug(undefined, Infinity);`
+
 // Deferred helper
 
 - use `queryBy` instead of `getBy` (ex. queryByLabelText()) when asserting
