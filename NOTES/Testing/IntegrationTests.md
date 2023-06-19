@@ -1,18 +1,24 @@
 # INTEGRATION TESTING
 
 - Should mostly use integration tests for most bang for the buck
-- More setup, but worth it and saves work in the long run (also preventing tons of unit tests for the same coverage)
+- More setup, but worth it and saves work in the long run (also preventing tons
+  of unit tests for the same coverage)
 
 ### Tradeoffs:
-- We can test what is rendered but if you really need to test style changes for visual regression testing and things like that you need to use tools like percy.io and app load tools(sp?)
 
------------
+- We can test what is rendered but if you really need to test style changes for
+  visual regression testing and things like that you need to use tools like
+  percy.io and app load tools(sp?)
+
+---
 
 ## Rendering App with all Providers
 
-- you will need to wrap your App with necessary providers to render in tests - i.e. Redux store provider etc.
+- you will need to wrap your App with necessary providers to render in tests -
+  i.e. Redux store provider etc.
 
-- If you keep your providers in one  component that takes children (i.e. your <App>), then you can use the wrapper  option with render():
+- If you keep your providers in one component that takes children (i.e. your
+  <App>), then you can use the wrapper option with render():
 
 ```javascript
 test('renders all the book information', async () => {
@@ -25,7 +31,9 @@ test('renders all the book information', async () => {
 
 ## Wait for Loading to finish on loading app:
 
-- use waitForElementToBeRemoved() from @testing-library/react which takes a callback which will be called when a DOM update occurs or at a regular interval:
+- use waitForElementToBeRemoved() from @testing-library/react which takes a
+  callback which will be called when a DOM update occurs or at a regular
+  interval:
 
 ```javascript
 test('renders all the book information', async () => {
@@ -37,8 +45,10 @@ test('renders all the book information', async () => {
 
 ## Mocking out AUTH:
 
-- Ideally you want to do the side effect that the auth provider does so the app thinks you're logged in
-- you could mock out your provider and the method to get tokens etc. alternatively
+- Ideally you want to do the side effect that the auth provider does so the app
+  thinks you're logged in
+- you could mock out your provider and the method to get tokens etc.
+  alternatively
 
 Example buildUser in test/generate module:
 
@@ -48,7 +58,7 @@ function buildUser(overrides) {
     id: faker.random.uuid(),
     username: faker.internet.userName(),
     password: faker.internet.password(),
-    ...overrides
+    ...overrides,
   }
 }
 ```
@@ -68,7 +78,7 @@ test('renders all the book information', async () => {
     // custom handle what we want - i.e. the success response needed after authing to load app
     if (url.endsWith('/bootstrap')) {
       return { // mock out a success response returned by fetch...
-        ok: true, 
+        ok: true,
         json: async () => ({user: {username: 'bob'}, listItems: []})
       }
     }
@@ -82,7 +92,6 @@ test('renders all the book information', async () => {
   await waitForElementToBeRemoved(() => screen.getByLabelText(/loading/i)
 }
 ```
-
 
 ## NAVIGATE TO PAGE AND RENDER INFO:
 
@@ -99,7 +108,7 @@ test('renders all the book information', async () => {
   window.fetch = async(url, config) => {
     if (url.endsWith('/bootstrap')) {
       return { // mock out a success response returned by fetch...
-        ok: true, 
+        ok: true,
         json: async () => ({...user, token: 'FAKETOKEN', listItems: []})
       }
     } else if (url.endsWith(`/books/${book.id}`)) {
@@ -113,13 +122,13 @@ test('renders all the book information', async () => {
 
   render(<App />, {wrapper: AppProviders})
 
-  await waitForElementToBeRemoved(() => screen.getByLabelText(/loading/i) 
+  await waitForElementToBeRemoved(() => screen.getByLabelText(/loading/i)
   screen.debug()
 
 
   // make assertions on information expected on the details page:
   // can look for roles with this to use in assertions:
-  // screen.getByRole('blah') // shows you list of roles - scroll down to get specific ones in the terminal 
+  // screen.getByRole('blah') // shows you list of roles - scroll down to get specific ones in the terminal
 
   expect(screen.getByRole('heading', {name: book.title})).toBeInTheDocument()
 
@@ -140,7 +149,6 @@ test('renders all the book information', async () => {
 
 ## CLEANUP - Clear state and cache between tests
 
-
 ```javascript
 // clear caches (react-query for ex.) and reset logged in user state
 afterEach(async () => {
@@ -159,7 +167,7 @@ test('renders all the book information', async () => {
   window.fetch = async(url, config) => {
     if (url.endsWith('/bootstrap')) {
       return {
-        ok: true, 
+        ok: true,
         json: async () => ({...user, token: 'FAKETOKEN', listItems: []})
       }
     } else if (url.endsWith(`/books/${book.id}`)) {
@@ -172,7 +180,7 @@ test('renders all the book information', async () => {
 
   render(<App />, {wrapper: AppProviders})
 
-  await waitForElementToBeRemoved(() => screen.getByLabelText(/loading/i) 
+  await waitForElementToBeRemoved(() => screen.getByLabelText(/loading/i)
   screen.debug()
 
   expect(screen.getByRole('heading', {name: book.title})).toBeInTheDocument()
@@ -192,8 +200,8 @@ test('renders all the book information', async () => {
 
 Make sure you have MSW configured (check for usage with create-react-app)
 
-
 // in test-server.js
+
 ```javascript
 import {setupServer} from 'msw/node' // msw package
 import {handlers} from './server-handlers' // we've setup handler wrappers ourselves
@@ -215,9 +223,12 @@ afterAll(() => server.close()) // close the server after all tests are finished
 afterEach(() => server.resetHandlers()) // resets runtime handlers in between tests to what was 							set in the first place (...handlers)
 ```
 
-NOTE: if you setup msw like this you can also use it as a mock back end during local development!
-see server-handlers.js in the epic react final project codebase
-- Kent Dodds mocks out the databases which you can reuse and interact with in the tests.
+NOTE: if you setup msw like this you can also use it as a mock back end during
+local development! see server-handlers.js in the epic react final project
+codebase
+
+- Kent Dodds mocks out the databases which you can reuse and interact with in
+  the tests.
 
 ```javascript
 afterEach(async () => {
@@ -229,7 +240,7 @@ afterEach(async () => {
     booksDB.reset(),
     listItemsDB.reset()
   ])
-  
+
 }
 
 test('renders all the book information', async () => {
@@ -245,14 +256,14 @@ test('renders all the book information', async () => {
 
   render(<App />, {wrapper: AppProviders})
 
-  /** **NOTE: 
+  /** **NOTE:
 	MSW adds a little tick to the event loop which could cause more loading elements or other things to remain on the screen.
 	Make sure to check for removal of all of those items to proceed when the tick has moved on to the next and loading is finished
   */
   await waitForElementToBeRemoved(() => [
     ...screen.queryAllByLabelText(/loading/i), // returns arr so spread it
     ...screen.queryAllByText(/loading/i),
-  ]) 
+  ])
   screen.debug()
 
   expect(screen.getByRole('heading', {name: book.title})).toBeInTheDocument()
@@ -263,5 +274,55 @@ test('renders all the book information', async () => {
 
   expect(screen.getByRole('button', {name: /add to list/i})).toBeInTheDocument()
   expect(screen.queryByRole('button', {name: /remove from the list/i})).not.toBeInTheDocument()
+}
+```
+
+## Adding a List Item to a List Test:
+
+```javascript
+test('can create a list item for the book', async () => {
+  const user = buildUser()
+  await usersDB.create(user)
+  const authUser = await usersDB.authenticate(user)
+
+  window.localStorage.setItem(auth.localStorageKey, authUser.token)
+  const book = await booksDB.create(buildBook())
+  const route = `/book/${book.id}`
+  window.history.pushState({}, 'Test Page', route)
+
+  render(<App />, {wrapper: AppProviders})
+
+  await waitForElementToBeRemoved(() => [
+    ...screen.queryAllByLabelText(/loading/i), // returns arr so spread it
+    ...screen.queryAllByText(/loading/i),
+  ])
+
+  const addToListButton = screen.getByRole('button', {name: /add to list/i})
+  userEvent.click(addToListButton)
+  // check disable after clicking while loading
+  expect(addToListButton).toBeDisabled()
+
+  //wait for loading to be removed again after click
+  await waitForElementToBeRemoved(() => [
+    ...screen.queryAllByLabelText(/loading/i), // returns arr so spread it
+    ...screen.queryAllByText(/loading/i),
+  ])
+
+  // assert what is expected on screen
+  expect(screen.getByRole('button', {name: /mark as read/i})).toBeInTheDocument()
+  expect(screen.getByRole('button', {name: /remove from list/i})).toBeInTheDocument()
+  // expect the notes textarea (use textbox role) to be there
+  expect(screen.getByRole('textbox', {name: /notes/i})).toBeInTheDocument()
+
+  // verify date is there, get the start date element - get by label works on aria-label attr
+  const startDateNode = screen.getByLabelText(/start date/i)
+  // the text is a formatted date version of date.now() ex: `Jun 20` - bring in your date formatter to use
+  // normally don't bring in things like this, in this case this is easier than alternative approaches and the formatter utility is well tested
+  expect(startDateNode).toHaveTextContent(formatDate(new Date()))
+
+  // verify that certain elements are not there after adding to list
+  expect(screen.queryByRole('button', {name: /add to list/i})).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', {name: /mark as unread/i})).not.toBeInTheDocument()
+  expect(screen.queryByRole('radio', {name: /star/i})).not.toBeInTheDocument()
 }
 ```
