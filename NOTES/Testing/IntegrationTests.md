@@ -280,22 +280,31 @@ test('renders all the book information', async () => {
 ## Adding a List Item to a List Test:
 
 ```javascript
-test('can create a list item for the book', async () => {
-  const user = buildUser()
+// utility function to reuse - implicit return and returns the promise
+const waitForLoadingToFinish = () =>
+  waitForElementToBeRemoved(() => [
+    ...screen.queryAllByLabelText(/loading/i), // returns arr so spread it
+    ...screen.queryAllByText(/loading/i),
+  ])
+// utility for logging in a test user
+async function loginAsUser(userProperties) {
+  const user = buildUser(userProperties)
   await usersDB.create(user)
   const authUser = await usersDB.authenticate(user)
-
   window.localStorage.setItem(auth.localStorageKey, authUser.token)
+  return authUser
+}
+
+test('can create a list item for the book', async () => {
+  await loginAsUser()
+
   const book = await booksDB.create(buildBook())
   const route = `/book/${book.id}`
   window.history.pushState({}, 'Test Page', route)
 
   render(<App />, {wrapper: AppProviders})
 
-  await waitForElementToBeRemoved(() => [
-    ...screen.queryAllByLabelText(/loading/i), // returns arr so spread it
-    ...screen.queryAllByText(/loading/i),
-  ])
+  await waitForLoadingToFinish()
 
   const addToListButton = screen.getByRole('button', {name: /add to list/i})
   userEvent.click(addToListButton)
@@ -303,14 +312,15 @@ test('can create a list item for the book', async () => {
   expect(addToListButton).toBeDisabled()
 
   //wait for loading to be removed again after click
-  await waitForElementToBeRemoved(() => [
-    ...screen.queryAllByLabelText(/loading/i), // returns arr so spread it
-    ...screen.queryAllByText(/loading/i),
-  ])
+  await waitForLoadingToFinish()
 
   // assert what is expected on screen
-  expect(screen.getByRole('button', {name: /mark as read/i})).toBeInTheDocument()
-  expect(screen.getByRole('button', {name: /remove from list/i})).toBeInTheDocument()
+  expect(
+    screen.getByRole('button', {name: /mark as read/i}),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole('button', {name: /remove from list/i}),
+  ).toBeInTheDocument()
   // expect the notes textarea (use textbox role) to be there
   expect(screen.getByRole('textbox', {name: /notes/i})).toBeInTheDocument()
 
@@ -321,8 +331,187 @@ test('can create a list item for the book', async () => {
   expect(startDateNode).toHaveTextContent(formatDate(new Date()))
 
   // verify that certain elements are not there after adding to list
-  expect(screen.queryByRole('button', {name: /add to list/i})).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', {name: /mark as unread/i})).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', {name: /add to list/i}),
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', {name: /mark as unread/i}),
+  ).not.toBeInTheDocument()
   expect(screen.queryByRole('radio', {name: /star/i})).not.toBeInTheDocument()
+})
+```
+
+### Example Custom Render Utility
+
+- For reuse in tests
+
+```javascript
+// change name of render pulled from react testing library
+import {render as rtlRender, ...} from '@testing-library/react'
+// reusable render - renderoptions are from react testing lib, default a route that could be passed in
+const render = async (ui, {route = '/default-app-route', user, ...renderOptions} = {}) => {
+  // accept an optional user passed in - allows for rending without a user logged in: i.e. render(<App />, {route, user: null})
+  user = typeof user === 'undefined' ? await loginAsUser() : user
+  // navigates to a specific route or the default app route (initial route)
+  window.history.pushState({}, 'Test Page', route)
+  // build in app providers and pass options from react test lib
+  const returnValue = { ...rtlRender(ui, {wrapper: AppProviders, ...renderOptions}), user }
+
+  await waitForLoadingToFinish()
+  // return the render after loading is finished
+  // return all the things that react testing lib gives you and additional data you need to use in the tests
+  return returnValue
 }
 ```
+
+Example usage:
+
+```javascript
+const book = await booksDB.create(buildBook())
+const route = `/book/${book.id}`
+await render(<App />, {route})
+
+// waits for loading etc automatically, so you can proceed in your test after calling render
+```
+
+## Global Test Utils
+
+- \*\* You could move these utils into a global module to reuse in all tests
+  like `src > test > app-test-utils.js`
+
+```javascript
+// in global module:
+
+// ... your test utils you want to use in tests, functions etc.
+
+// export everything including react testing library and userEvent etc. so the user can just pull in this module and get everything they might need in the test
+export * from '@testing-library/react'
+// export your custom render util (defined above) and other utilities like userEvent that you will reuse. Note that we override the render from rtl with our custom render function and export that (because we define render after importing it from react-testing library and alias it to rtlRender in the global utils file - this file)
+export {render, userEvent, logInAsUser, waitForLoadingToFinish}
+```
+
+## Test Removing a List Item
+
+- NOTE: don't just click on add to list item and then remove from list - that is
+  over testing the add to list functionality that is already tested above.
+  - instead, create a list item before you even render the app.
+
+```javascript
+test('can remove a list item for the book', async () => {
+  // we need to login as our own user so that the book is associated with this user for testing
+  const user = await loginAsUser()
+  const book = await booksDB.create(buildBook())
+  const route = `/book/${book.id}`
+  // create a list item before rendering to show that we will test removing (skip clicking add to list etc):
+  // this mock dev db will have the record which will show on screen when the app list page renders (it's set up in the example to pull from the mock db if in dev or testing mode)
+  await listItemsDB.create(buildListItem({owner: user, route, book}))
+  // render the app with the route and the user specified we created above
+  render(<App />, {route, user})
+
+  const removeFromListButton = screen.getByRole('button', {
+    name: /add to list/i,
+  })
+  userEvent.click(removeFromListButton)
+  // check disable after clicking while loading
+  expect(removeFromListButton).toBeDisabled()
+
+  await waitForLoadingToFinish()
+
+  // assert what is expected on screen
+  // add to list re appears since it's been removed and can now be added
+  expect(screen.getByRole('button', {name: /add to list/i})).toBeInTheDocument()
+
+  // remove button should not be there now
+  expect(
+    screen.queryByRole('button', {name: /remove from list/i}),
+  ).not.toBeInTheDocument()
+})
+```
+
+## Editing a List Item Test
+
+- https://epicreact.dev/modules/build-an-epic-react-app/integration-testing-extra-credit-solution-05-03
+
+- jest.useFakeTimers(): Every time you use this Jest will mock and fake out all
+  the timers in the app like setTimeout, setInterval, requestIdleFrame callback
+  with something that you can manually advance and move forward synchronously to
+  change how long they take (so they take an instant)
+  - from https://epicreact.dev/modules/build-an-epic-react-app/integration-testing-extra-credit-solution-05-04
+  - **Always make sure you reenable the real timers before any other test when
+    used**
+  ```javascript
+  // in setupTests.js
+  //... other setup
+  beforeEach(() => jest.useRealTimers())
+  ```
+  - NOTE: Fake Timers are built in to all of the asynchronous utilities we get from Testing Library if you use the fake timers, so instead of waiting the real intervals it will use the jest fake timers to advance those automatically in the test
+
+```javascript
+//...
+import faker from 'faker'
+
+test('can edit a note', async () => {
+  // use fake timers so that the debounce timer is advanced instantly when notes are typed so the test does not take as long:
+  jest.useFakeTimers()
+
+  const user = await loginAsUser()
+  const book = await booksDB.create(buildBook())
+  const route = `/book/${book.id}`
+  await listItemsDB.create(buildListItem({owner: user, book}))
+  render(<App />, {route, user})
+
+  // generate some text using faker for the notes
+  const newNotes = faker.lorem.words()
+  const notestTextarea = screen.getByRole('textbox', {name: /notes/i})
+
+  // clear notes text area of what it had before - make value empty, can use .clear() on userEvents
+  userEvent.clear(notesTextarea)
+  // type in the new notes
+  userEvent.type(notesTextarea, newNotes)
+
+  /**
+   *   NOTE: There is a debounce when the user types notes so the loading indicator will not show up until after 3 seconds on the screen.  waitForElementToBeRemoved checks for the element to be in the document first and if it does not exist, then it will throw an error.
+   *
+   *  problem with this is that the promise that comes back from findLabelByText resolves a little bit after the loading shows up and disappears immediately. so when we get to waitForLoadingToFinish() indicator is already gone.
+   */
+  await screen.findByLabelText(/loading/i)
+
+  // notes editing causes loading
+  /**
+   * So we originally would want to wait for the loading to be removed, but because the findByLabelText above resolves afterwards, causing this wait to error out since the loading indicator is already gone (happens so fast), we remove this line to wait for loading to be removed.
+   */
+  // await waitForLoadingToFinish() // this is removed and can't be done due to above
+
+  // Now that we use fakeTimers however, the findByLabelText and loading being removed doesn't happen so fast since fake timers allows for a lot more control over the timing going on, so we can more accurately test behavior and put back wait for element to be removed.
+  // note that when using fakeTimers, the testing lib async methods will automatically advance them as needed:
+  await waitForLoadingToFinish()
+
+  // optionally add `await waitFor()` if you want to be extra sure this will be in the document
+  await waitFor(() => expect(notesTextarea).toHaveValue(newNotes))
+
+  // there is no feedback to check if notes were updated so we check in the database to see the notes were saved there.
+  expect(await listItemsDB.read(listItem.id)).toMatchObject({notes: newNotes})
+})
+```
+## Mocking Out Profiler (App wide non critical setup) for Tests
+- https://epicreact.dev/modules/build-an-epic-react-app/integration-testing-extra-credit-solution-05-05
+- When an app starts up it can have some analytics or other things start which are not critical and can be mocked out for tests
+- This example mocks out the React Profiler an app uses on app load which runs a setInterval and gets and collects client information for analytics and performance monitoring.
+
+1. Create a `__mocks__` folder next to the component: i.e. in `components/__mocks__/profiler.js` where the component being mocked is in `components/profiler.js`
+ ```javascript
+ // empty component that just takes children
+ const Profiler = ({children}) => children
+ // exports everything that the real module exports in components/Profiler.js
+ export {Profiler}
+ ```
+
+ 2. Make sure every test is mocking that. Set it up in the `setupTests.js` file
+ ```javascript
+ // setupTests.js
+
+ //...imports
+
+// This makes sure that the profiler uses the mock and not the real component that uses setInterval and collects and sends performance data etc.
+ jest.mock('components/profiler')
+ ```
