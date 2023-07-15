@@ -436,7 +436,8 @@ test('can remove a list item for the book', async () => {
   the timers in the app like setTimeout, setInterval, requestIdleFrame callback
   with something that you can manually advance and move forward synchronously to
   change how long they take (so they take an instant)
-  - from https://epicreact.dev/modules/build-an-epic-react-app/integration-testing-extra-credit-solution-05-04
+  - from
+    https://epicreact.dev/modules/build-an-epic-react-app/integration-testing-extra-credit-solution-05-04
   - **Always make sure you reenable the real timers before any other test when
     used**
   ```javascript
@@ -444,7 +445,10 @@ test('can remove a list item for the book', async () => {
   //... other setup
   beforeEach(() => jest.useRealTimers())
   ```
-  - NOTE: Fake Timers are built in to all of the asynchronous utilities we get from Testing Library if you use the fake timers, so instead of waiting the real intervals it will use the jest fake timers to advance those automatically in the test
+  - NOTE: Fake Timers are built in to all of the asynchronous utilities we get
+    from Testing Library if you use the fake timers, so instead of waiting the
+    real intervals it will use the jest fake timers to advance those
+    automatically in the test
 
 ```javascript
 //...
@@ -493,25 +497,106 @@ test('can edit a note', async () => {
   expect(await listItemsDB.read(listItem.id)).toMatchObject({notes: newNotes})
 })
 ```
+
 ## Mocking Out Profiler (App wide non critical setup) for Tests
+
 - https://epicreact.dev/modules/build-an-epic-react-app/integration-testing-extra-credit-solution-05-05
-- When an app starts up it can have some analytics or other things start which are not critical and can be mocked out for tests
-- This example mocks out the React Profiler an app uses on app load which runs a setInterval and gets and collects client information for analytics and performance monitoring.
+- When an app starts up it can have some analytics or other things start which
+  are not critical and can be mocked out for tests
+- This example mocks out the React Profiler an app uses on app load which runs a
+  setInterval and gets and collects client information for analytics and
+  performance monitoring.
 
-1. Create a `__mocks__` folder next to the component: i.e. in `components/__mocks__/profiler.js` where the component being mocked is in `components/profiler.js`
- ```javascript
- // empty component that just takes children
- const Profiler = ({children}) => children
- // exports everything that the real module exports in components/Profiler.js
- export {Profiler}
- ```
+1. Create a `__mocks__` folder next to the component: i.e. in
+   `components/__mocks__/profiler.js` where the component being mocked is in
+   `components/profiler.js`
 
- 2. Make sure every test is mocking that. Set it up in the `setupTests.js` file
- ```javascript
- // setupTests.js
+```javascript
+// empty component that just takes children
+const Profiler = ({children}) => children
+// exports everything that the real module exports in components/Profiler.js
+export {Profiler}
+```
 
- //...imports
+2.  Make sure every test is mocking that. Set it up in the `setupTests.js` file
+
+```javascript
+// setupTests.js
+
+//...imports
 
 // This makes sure that the profiler uses the mock and not the real component that uses setInterval and collects and sends performance data etc.
- jest.mock('components/profiler')
- ```
+jest.mock('components/profiler')
+```
+
+## Component specific renderer (renderBookScreen)
+
+- [Lesson video](https://epicreact.dev/modules/build-an-epic-react-app/integration-testing-extra-credit-solution-06)
+
+```javascript
+async function renderBookScreen({user, book, listItem} = {}) {
+  // allow for providing inputs to the book screen, if not provided then create them here and pass them to book screen
+  if (user === undefined) user = await loginUser()
+  if (book === undefined) book = await booksDb.create(buildBook())
+  if (listItem === undefined)
+    listItem = await listItemDb.create(buildListItem({owner: user, book}))
+
+  const route = `book/${book.id}`
+
+  const utils = await render(<App />, {route, user})
+
+  return {...utils, user, book, listItem}
+}
+```
+
+## Testing Exception Error Shown for Missing Item
+
+```javascript
+test('shows an error message when the book fails to load', async () => {
+  // provide item not in the database
+  const book = {id: 'BAD_ID'}
+  // make the list item shown null - no list item for this book and we pass in the book not in the database
+  await renderBookScreen({listItem: null, book})
+
+  // when we render the book screen the route has the book id to find it. Since it does not exist in the database and is a bad id, we will get an error shown in the application.
+
+  // assert that the text content is what you expect and use inline snapshot for error messages (could chage)
+  // run the test once to update the snapshot which will auto generate the text expected in the test file
+  expect((await screen.findByRole('alert')).textContent).toMatchInlineSnapshot(
+    `text is generated after first run`,
+  )
+})
+```
+
+## Handling Console Errors (console.error) Logs in Tests
+
+- [Lesson video](https://epicreact.dev/modules/build-an-epic-react-app/integration-testing-extra-credit-solution-07-02)
+- mock the console to do nothing and restore the mock after
+  - Note: you don't want it in BeforeAll() because it will silense other errors
+    you need to see in the tests
+  - You also don't want to put it in a afterAll() since it will explode if a
+    test that mocks it is skipped for example.
+- You want to **scope the hooks** to a specific test
+  - Move the `beforeAll` and `afterAll` into a `describe`` block
+  - Note: Kent C. Dodds recommends not using describe blocks normally, but just
+    making separate files for tests that can gbe grouped. This has the advantage
+    of running the different files in parallel
+
+```javascript
+// scope the console error mock to a describe block, so it only runs for tests that need it
+describe('console errors', () => {
+  beforeAll(() => {
+    // whenever console.error is called, it doesn't do anything or display in terminal output
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterAll(() => {
+    // make sure to restore console error after you need it silenced
+    console.error.mockResore()
+  })
+
+  test('test that needs console errors silent', () => {
+    //...my test (i.e. an exception throwing test etc.)
+  })
+})
+```
