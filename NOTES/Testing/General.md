@@ -84,3 +84,73 @@ your code now has a third user.
   duplicate code until you get there.
 - If you find yourself passing parameters and adding conditional paths through
   shared code, the abstraction is incorrect.
+
+## Jest Configuration and Gotchas
+
+- Jest runs in Node, so when you get syntax errors for import statements etc. it
+  means that node doesn't support that syntax and jest cannot compile it.
+- in your jest.config.js make sure you specify
+  `testEnvironment: 'jest-environment-jsdom'` and install the js-dom package
+  separately as a dev dependency: `npm install -D jest-environment-jsdom`
+  - this ensures that all tests run in a browser simulated environment instead
+    of regular node
+- `ERROR: unexpected token "."`
+  - caused because jest is running a file that is importing a css file as a
+    module and sees a class name (.classname), but css is not a js module. (a
+    file that imports `import './styles.css'` for ex.)
+    - Make a new file in `test/style-mock.js`
+    - put `module.exports = {}`
+    - Make `test/file-mock.js`
+    - in jest.config.js use moduleNameMapper:
+    ```javascript
+    moduleNameMapper: {
+      "\\.(css|less|scss)$": require.resolve("./test/style-mock.js"),
+      "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": require.resolve("./test/file-mock.js")
+    }
+    ```
+  - See this post for more suggestions and examples:
+    https://stackoverflow.com/questions/54627028/jest-unexpected-token-when-importing-css
+  - if using css modules, then see this:
+    https://testingjavascript.com/lessons/jest-support-using-webpack-css-modules-with-jest
+- Installing Typeahead for test pattern match:
+  - https://testingjavascript.com/lessons/jest-filter-which-tests-are-run-with-typeahead-support-in-jest-watch-mode
+  - install jest-watch-typeahead package as dev dep
+  - add this to jest.config.js
+  ```javascript
+  watchPlugins: [
+    'jest-watch-typeahead/filename',
+    'jest-watch-typeahead/testname',
+  ]
+  ```
+- Cannot Find beforeEach, it etc. errors in Jest files:
+  - see
+    https://stackoverflow.com/questions/56595053/cannot-find-name-it-in-jest-typescript
+  - npm install -D jest @types/jest ts-jest jest.config.js -- at root
+
+```javascript
+// jest.config
+module.exports = {
+  roots: ['<rootDir>/src'],
+  transform: {
+    '^.+\\.tsx?$': 'ts-jest',
+  },
+  testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+}
+```
+
+```javascript
+// tsconfig
+{
+  "compilerOptions": {
+   ...
+
+    "types": ["reflect-metadata", "jest"],
+    "typeRoots": ["./types", "./node_modules/@types"]
+
+   ...
+  },
+  "exclude": ["node_modules", "**/*.spec.ts", "**/*.test.ts"],
+  "include": ["./src/**/*.tsx", "./src/**/*.ts"]
+}
+```
